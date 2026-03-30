@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: reports_db
+    ports:
+      - "5433:5432"
+    # Порт 5433 снаружи чтобы не конфликтовать с твоим kanban_db на 5432.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # volume — данные БД сохраняются между перезапусками контейнера.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # healthcheck — Docker ждёт пока Postgres реально готов принимать
+    # соединения, прежде чем запускать api и worker.
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6380:6379"
+    # Порт 6380 снаружи чтобы не конфликтовать с твоим redis на 6379.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/reports_db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/reports_db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    command: celery -A workers.celery:celery_app worker --loglevel=info
+    volumes:
+      - reports_data:/tmp/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  reports_data:
