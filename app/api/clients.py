@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.logger import logger
 
 from app.api.deps import get_db
 from app.models import Client
@@ -29,6 +30,7 @@ async def create_client(
     payload: ClientCreate,
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info(f"Creating client: name={payload.name} type={payload.client_type}")
     client = Client(
         name=payload.name,
         email=payload.email,
@@ -36,15 +38,30 @@ async def create_client(
     )
     db.add(client)
     await db.flush()
-
+    logger.info(f"Client created: id={client.id}")
     return ClientResponse.model_validate(client)
 
 
 @router.get("/", response_model=list[ClientResponse])
 async def list_clients(
+    page: int = 1,
+    limit: int = 20,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Client))
+    if limit > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Limit cannot exceed 100"
+        )
+
+    offset = (page - 1) * limit
+
+    result = await db.execute(
+        select(Client)
+        .order_by(Client.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     clients = result.scalars().all()
     return [ClientResponse.model_validate(c) for c in clients]
 
@@ -77,6 +94,8 @@ async def delete_client(
     client = result.scalar_one_or_none()
 
     if not client:
+        logger.warning(f"Client not found: id={client_id}")
         raise HTTPException(status_code=404, detail="Client not found")
-
+    
+    logger.info(f"Deleting client: id={client_id} name={client.name}")
     await db.delete(client)

@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.core.logger import logger
 from app.api.deps import get_db
 from app.models import Report
 from workers.tasks import generate_report_task
@@ -32,6 +32,7 @@ async def generate_report(
     payload: ReportRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info(f"Report requested: client_id={payload.client_id} type={payload.report_type}")
     report = Report(
         client_id=payload.client_id,
         report_type=payload.report_type,
@@ -50,6 +51,7 @@ async def generate_report(
     )
 
     report.celery_task_id = task.id
+    logger.info(f"Report queued: report_id={report.id} task_id={task.id}")
 
     return ReportResponse(
         report_id=report.id,
