@@ -11,14 +11,16 @@ router = APIRouter()
 
 class ClientCreate(BaseModel):
     name: str
+    email: str
     client_type: str = "individual"
 
 
 class ClientResponse(BaseModel):
     id: str
     name: str
+    email: str
     client_type: str
-
+    
     model_config = {"from_attributes": True}
 
 
@@ -29,6 +31,7 @@ async def create_client(
 ):
     client = Client(
         name=payload.name,
+        email=payload.email,
         client_type=payload.client_type,
     )
     db.add(client)

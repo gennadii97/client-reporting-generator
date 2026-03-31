@@ -18,6 +18,7 @@ class Client(Base):
     client_type: Mapped[str] = mapped_column(
         String(50), nullable=False, default="individual"
     )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
