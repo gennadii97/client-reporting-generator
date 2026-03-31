@@ -120,3 +120,18 @@ async def download_report(
         media_type="application/pdf",
         filename=f"report_{report.client_id}_{report.report_type}.pdf",
     )
+
+@router.delete("/{report_id}", status_code=204)
+async def delete_report(
+    report_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Report).where(Report.id == report_id)
+    )
+    report = result.scalar_one_or_none()
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    await db.delete(report)

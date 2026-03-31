@@ -67,6 +67,7 @@ async def test_create_client(client):
         "/api/v1/clients/",
         json={
             "name": "Test Client",
+            "email": "test@example.com",
             "client_type": "corporate",
         }
     )
@@ -98,7 +99,7 @@ async def test_create_and_get_client(client):
     # Создаём клиента.
     create_response = await client.post(
         "/api/v1/clients/",
-        json={"name": "Газпром", "client_type": "corporate"}
+        json={"name": "Газпром", "email": "gazprom@example.com", "client_type": "corporate"}
     )
     assert create_response.status_code == 201
     client_id = create_response.json()["id"]
@@ -107,3 +108,40 @@ async def test_create_and_get_client(client):
     get_response = await client.get(f"/api/v1/clients/{client_id}")
     assert get_response.status_code == 200
     assert get_response.json()["name"] == "Газпром"
+
+@pytest.mark.asyncio
+async def test_delete_report(client):
+    # Создаём клиента.
+    create_response = await client.post(
+        "/api/v1/clients/",
+        json={"name": "BNP", "email": "bnp@example.com", "client_type": "corporate"}
+    )
+    assert create_response.status_code == 201
+    client_id = create_response.json()["id"]
+
+    # Создаём отчёт.
+    report_response = await client.post(
+        "/api/v1/reports/generate",
+        json={
+            "client_id": client_id,
+            "report_type": "monthly",
+            "period_start": "2024-01-01",
+            "period_end": "2024-01-31"
+        }
+    )
+    assert report_response.status_code == 202
+    report_id = report_response.json()["report_id"]
+    
+
+    # Пытаемся удалить  отчёт.
+    delete_response = await client.delete(
+        f"/api/v1/reports/{report_id}"
+    )
+    assert delete_response.status_code == 204
+
+    # Проверяем, что отчёт удалён.
+    status_response = await client.get(
+        f"/api/v1/reports/{report_id}/status"
+    )
+    assert status_response.status_code == 404
+    assert status_response.json()["detail"] == "Report not found"   
