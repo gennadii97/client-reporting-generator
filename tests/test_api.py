@@ -2,9 +2,9 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.main import app
-from app.core.database import Base
 from app.api.deps import get_db
+from app.core.database import Base
+from app.main import app
 
 # Тестовая БД в памяти — не трогает реальный PostgreSQL.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

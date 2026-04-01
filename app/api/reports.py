@@ -1,18 +1,17 @@
 from pathlib import Path
-from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.logger import logger
+
 from app.api.deps import get_db
+from app.core.limiter import limiter
+from app.core.logger import logger
 from app.models import Report
 from workers.tasks import generate_report_task
-from app.core.limiter import limiter 
+
 router = APIRouter()
 
 
@@ -79,6 +78,7 @@ async def get_report_status(
 
     if report.status in ("queued", "started"):
         from celery.result import AsyncResult
+
         from workers.celery import celery_app
 
         task_result = AsyncResult(report.celery_task_id, app=celery_app)

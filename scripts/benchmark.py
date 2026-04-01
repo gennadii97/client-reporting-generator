@@ -2,13 +2,12 @@
 Benchmark: синхронная генерация vs асинхронная через Celery.
 Запуск: python scripts/benchmark.py
 """
-import time
 import statistics
+import time
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
-
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 OUTPUT_DIR = Path("/tmp/reports/benchmark")
@@ -86,7 +85,7 @@ def run_benchmark(runs: int = 10):
     print(f"  Mean:   {sync_mean:.2f}s")
 
     # Оптимизированный подход.
-    print(f"\nRunning: optimized approach (Celery worker)...")
+    print("\nRunning: optimized approach (Celery worker)...")
     opt_times = []
     for i in range(runs):
         t = generate_pdf_optimized(i)

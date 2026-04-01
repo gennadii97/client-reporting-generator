@@ -2,9 +2,10 @@
 Генерация тестовых данных.
 Запуск: python scripts/seed.py --clients 100 --reports 500
 """
-import asyncio
 import argparse
+import asyncio
 import random
+
 from faker import Faker
 
 from app.core.database import AsyncSessionLocal
