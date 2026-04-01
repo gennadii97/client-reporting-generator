@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+# Запускаем при каждом пуше в main и при открытии Pull Request.
+# На реальном проекте нельзя смержить PR если тесты упали.
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        # Клонирует репозиторий в GitHub Actions runner.
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libpango-1.0-0 \
+            libharfbuzz0b \
+            libpangoft2-1.0-0 \
+            libffi-dev \
+            libjpeg-dev \
+            libopenjp2-7
+        # Те же системные зависимости что в Dockerfile —
+        # нужны для WeasyPrint.
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip setuptools
+          pip install fastapi uvicorn pydantic pydantic-settings \
+            sqlalchemy alembic asyncpg celery redis jinja2 weasyprint \
+            python-multipart greenlet psycopg2-binary \
+            pytest pytest-asyncio httpx ruff mypy aiosqlite \
+            slowapi loguru flower faker
+
+      - name: Run linter
+        run: ruff check .
+        # Проверяем стиль кода перед тестами.
+        # Если есть ошибки стиля — CI упадёт.
+
+      - name: Run tests
+        run: pytest tests/ -v
