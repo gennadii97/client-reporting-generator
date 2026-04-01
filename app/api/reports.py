@@ -1,7 +1,9 @@
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -10,7 +12,7 @@ from app.core.logger import logger
 from app.api.deps import get_db
 from app.models import Report
 from workers.tasks import generate_report_task
-
+from app.core.limiter import limiter 
 router = APIRouter()
 
 
@@ -28,7 +30,9 @@ class ReportResponse(BaseModel):
 
 
 @router.post("/generate", response_model=ReportResponse, status_code=202)
+@limiter.limit("10/minute")
 async def generate_report(
+    request: Request,
     payload: ReportRequest,
     db: AsyncSession = Depends(get_db),
 ):

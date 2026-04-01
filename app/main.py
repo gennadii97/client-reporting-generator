@@ -2,16 +2,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
-from app.api import reports,clients
+from app.api import clients, reports
 from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.logger import logger
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print(f"Starting {settings.app_name}")
+    logger.info(f"Starting {settings.app_name}")
     yield
-    print("Shutting down")
+    logger.info("Shutting down")
 
 
 app = FastAPI(
@@ -21,6 +25,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Подключаем limiter к приложению.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Когда лимит превышен — возвращаем 429 Too Many Requests.
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,9 +37,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
 app.include_router(clients.router, prefix="/api/v1/clients", tags=["clients"])
-
+app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
 
 
 @app.get("/health")

@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logger import logger
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.core.limiter import limiter 
 
 from app.api.deps import get_db
 from app.models import Client
@@ -26,7 +28,9 @@ class ClientResponse(BaseModel):
 
 
 @router.post("/", response_model=ClientResponse, status_code=201)
+@limiter.limit("20/minute")
 async def create_client(
+    request: Request,
     payload: ClientCreate,
     db: AsyncSession = Depends(get_db),
 ):
@@ -43,7 +47,9 @@ async def create_client(
 
 
 @router.get("/", response_model=list[ClientResponse])
+@limiter.limit("30/minute")
 async def list_clients(
+    request: Request,
     page: int = 1,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
