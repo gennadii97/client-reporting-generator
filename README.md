@@ -1,5 +1,5 @@
 # Client Reporting Generator
-
+![CI](https://github.com/gennadii97/client-reporting-generator/actions/workflows/ci.yml/badge.svg)
 Async PDF report generation service for financial clients.
 Built to demonstrate production-grade Python backend skills.
 
