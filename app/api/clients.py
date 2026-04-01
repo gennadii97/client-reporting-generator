@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_user, require_admin
+from app.api.deps import get_current_user, get_db, require_admin
 from app.core.limiter import limiter
 from app.core.logger import logger
 from app.models import Client, User

@@ -4,11 +4,11 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.core.database import Base
 from app.main import app
+from app.models import User
 
-# Тестовая БД в памяти — не трогает реальный PostgreSQL.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 engine_test = create_async_engine(
@@ -33,21 +33,49 @@ async def override_get_db():
             raise
 
 
+def make_mock_user(role: str = "admin") -> User:
+    user = User()
+    user.id = "test-user-id"
+    user.username = "testuser"
+    user.role = role
+    user.is_active = True
+    return user
+
+
+async def override_get_current_user():
+    return make_mock_user(role="admin")
+
+
+async def override_get_current_user_analyst():
+    return make_mock_user(role="analyst")
+
+
 @pytest.fixture(autouse=True)
 async def setup_db():
-    # Создаём таблицы перед каждым тестом.
     async with engine_test.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
-    # Удаляем таблицы после каждого теста — чистое состояние.
     async with engine_test.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
 async def client():
-    # Подменяем реальную БД на тестовую через dependency override.
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test"
+    ) as ac:
+        yield ac
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def analyst_client():
+    # Клиент с ролью analyst — ограниченные права.
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user_analyst
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test"
@@ -98,7 +126,6 @@ async def test_list_clients_empty(client):
 
 @pytest.mark.asyncio
 async def test_create_and_get_client(client):
-    # Создаём клиента.
     create_response = await client.post(
         "/api/v1/clients/",
         json={"name": "Газпром", "email": "gazprom@example.com", "client_type": "corporate"}
@@ -106,10 +133,19 @@ async def test_create_and_get_client(client):
     assert create_response.status_code == 201
     client_id = create_response.json()["id"]
 
-    # Получаем его по ID.
     get_response = await client.get(f"/api/v1/clients/{client_id}")
     assert get_response.status_code == 200
     assert get_response.json()["name"] == "Газпром"
+
+
+@pytest.mark.asyncio
+async def test_analyst_cannot_delete_client(analyst_client):
+    # Analyst не может удалять клиентов — только admin.
+    response = await analyst_client.delete(
+        "/api/v1/clients/00000000-0000-0000-0000-000000000000"
+    )
+    assert response.status_code == 403
+
 
 @pytest.mark.asyncio
 async def test_delete_report(client):
@@ -120,7 +156,6 @@ async def test_delete_report(client):
     assert create_response.status_code == 201
     client_id = create_response.json()["id"]
 
-    # Мокируем Celery задачу — не обращаемся к Redis в тестах.
     mock_task = MagicMock()
     mock_task.id = "test-task-id-123"
 
