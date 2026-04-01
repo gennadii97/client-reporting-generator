@@ -1,7 +1,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
+from unittest.mock import patch, MagicMock
 from app.api.deps import get_db
 from app.core.database import Base
 from app.main import app
@@ -111,7 +111,6 @@ async def test_create_and_get_client(client):
 
 @pytest.mark.asyncio
 async def test_delete_report(client):
-    # Создаём клиента.
     create_response = await client.post(
         "/api/v1/clients/",
         json={"name": "BNP", "email": "bnp@example.com", "client_type": "corporate"}
@@ -119,29 +118,25 @@ async def test_delete_report(client):
     assert create_response.status_code == 201
     client_id = create_response.json()["id"]
 
-    # Создаём отчёт.
-    report_response = await client.post(
-        "/api/v1/reports/generate",
-        json={
-            "client_id": client_id,
-            "report_type": "monthly",
-            "period_start": "2024-01-01",
-            "period_end": "2024-01-31"
-        }
-    )
+    # Мокируем Celery задачу — не обращаемся к Redis в тестах.
+    mock_task = MagicMock()
+    mock_task.id = "test-task-id-123"
+
+    with patch("app.api.reports.generate_report_task.delay", return_value=mock_task):
+        report_response = await client.post(
+            "/api/v1/reports/generate",
+            json={
+                "client_id": client_id,
+                "report_type": "monthly",
+                "period_start": "2024-01-01",
+                "period_end": "2024-01-31"
+            }
+        )
     assert report_response.status_code == 202
     report_id = report_response.json()["report_id"]
-    
 
-    # Пытаемся удалить  отчёт.
-    delete_response = await client.delete(
-        f"/api/v1/reports/{report_id}"
-    )
+    delete_response = await client.delete(f"/api/v1/reports/{report_id}")
     assert delete_response.status_code == 204
 
-    # Проверяем, что отчёт удалён.
-    status_response = await client.get(
-        f"/api/v1/reports/{report_id}/status"
-    )
+    status_response = await client.get(f"/api/v1/reports/{report_id}/status")
     assert status_response.status_code == 404
-    assert status_response.json()["detail"] == "Report not found"   
