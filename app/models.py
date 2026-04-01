@@ -59,3 +59,24 @@ class Report(Base):
         DateTime, server_default=func.now(), onupdate=func.now()
     )
     client: Mapped["Client"] = relationship(back_populates="reports")
+
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    username: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="analyst"
+    )
+    
+
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )

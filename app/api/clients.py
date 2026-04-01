@@ -3,10 +3,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user, require_admin
 from app.core.limiter import limiter
 from app.core.logger import logger
-from app.models import Client
+from app.models import Client, User
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ class ClientResponse(BaseModel):
     name: str
     email: str
     client_type: str
-    
+
     model_config = {"from_attributes": True}
 
 
@@ -32,8 +32,10 @@ async def create_client(
     request: Request,
     payload: ClientCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+    # Только admin может создавать клиентов.
 ):
-    logger.info(f"Creating client: name={payload.name} type={payload.client_type}")
+    logger.info(f"Creating client: name={payload.name} by user={current_user.username}")
     client = Client(
         name=payload.name,
         email=payload.email,
@@ -52,15 +54,13 @@ async def list_clients(
     page: int = 1,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    # Любой авторизованный пользователь может читать.
 ):
     if limit > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="Limit cannot exceed 100"
-        )
+        raise HTTPException(status_code=400, detail="Limit cannot exceed 100")
 
     offset = (page - 1) * limit
-
     result = await db.execute(
         select(Client)
         .order_by(Client.created_at.desc())
@@ -75,16 +75,14 @@ async def list_clients(
 async def get_client(
     client_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
         select(Client).where(Client.id == client_id)
     )
     client = result.scalar_one_or_none()
-    
-
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-
     return ClientResponse.model_validate(client)
 
 
@@ -92,15 +90,16 @@ async def get_client(
 async def delete_client(
     client_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+    # Только admin может удалять.
 ):
     result = await db.execute(
         select(Client).where(Client.id == client_id)
     )
     client = result.scalar_one_or_none()
-
     if not client:
         logger.warning(f"Client not found: id={client_id}")
         raise HTTPException(status_code=404, detail="Client not found")
-    
-    logger.info(f"Deleting client: id={client_id} name={client.name}")
+
+    logger.info(f"Deleting client: id={client_id} by user={current_user.username}")
     await db.delete(client)
