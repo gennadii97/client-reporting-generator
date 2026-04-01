@@ -13,9 +13,12 @@ WORKDIR /app
 
 COPY pyproject.toml .
 RUN pip install --no-cache-dir --upgrade pip setuptools && \
-    pip install --no-cache-dir fastapi uvicorn[standard] pydantic pydantic-settings \
+    pip install --no-cache-dir \
+    fastapi uvicorn[standard] pydantic pydantic-settings \
     sqlalchemy alembic asyncpg celery redis jinja2 weasyprint \
-    python-multipart greenlet psycopg2-binary pytest pytest-asyncio httpx ruff mypy
+    python-multipart greenlet psycopg2-binary \
+    pytest pytest-asyncio httpx ruff mypy aiosqlite \
+    slowapi loguru flower faker
 
 COPY . .
 
