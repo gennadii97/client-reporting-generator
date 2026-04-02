@@ -38,11 +38,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip setuptools
-          pip install fastapi uvicorn pydantic pydantic-settings \
-            sqlalchemy alembic asyncpg celery redis jinja2 weasyprint \
-            python-multipart greenlet psycopg2-binary \
-            pytest pytest-asyncio httpx ruff mypy aiosqlite \
-            slowapi loguru flower faker sentry-sdk[fastapi] sentry-sdk
+          pip install .
 
       - name: Run linter
         run: ruff check .
