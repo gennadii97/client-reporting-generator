@@ -42,7 +42,7 @@ jobs:
             sqlalchemy alembic asyncpg celery redis jinja2 weasyprint \
             python-multipart greenlet psycopg2-binary \
             pytest pytest-asyncio httpx ruff mypy aiosqlite \
-            slowapi loguru flower faker
+            slowapi loguru flower faker sentry-sdk[fastapi]
 
       - name: Run linter
         run: ruff check .

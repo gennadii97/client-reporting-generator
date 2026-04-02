@@ -10,6 +10,23 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logger import logger
 
+import sentry_sdk
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        integrations=[
+            FastApiIntegration(),
+            SqlalchemyIntegration(),
+            CeleryIntegration(),
+        ],
+        traces_sample_rate=0.1,
+        environment="development" if settings.debug else "production",
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

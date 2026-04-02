@@ -23,5 +23,7 @@ class Settings(BaseSettings):
     # Reports
     reports_output_dir: str = "/tmp/reports"
 
+    sentry_dsn: str = ""
+
 
 settings = Settings()
