@@ -1,7 +1,11 @@
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -9,11 +13,6 @@ from app.api import auth, clients, reports
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logger import logger
-
-import sentry_sdk
-from sentry_sdk.integrations.celery import CeleryIntegration
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 if settings.sentry_dsn:
     sentry_sdk.init(
