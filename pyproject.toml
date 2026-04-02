@@ -27,7 +27,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "sentry-sdk[fastapi]",
-    "sentry-sdk"
+    "sentry_sdk"
 ]
 
 [project.optional-dependencies]
