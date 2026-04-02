@@ -1,8 +1,7 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.api.deps import get_current_user, get_db
 from app.core.database import Base
@@ -63,24 +62,30 @@ async def setup_db():
 async def client():
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test"
-    ) as ac:
-        yield ac
+    # Мокируем Redis кеш — в тестах Redis недоступен.
+    with patch("app.api.clients.get_cache", new_callable=AsyncMock, return_value=None), \
+         patch("app.api.clients.set_cache", new_callable=AsyncMock), \
+         patch("app.api.clients.delete_cache", new_callable=AsyncMock):
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test"
+        ) as ac:
+            yield ac
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
 async def analyst_client():
-    # Клиент с ролью analyst — ограниченные права.
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user_analyst
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test"
-    ) as ac:
-        yield ac
+    with patch("app.api.clients.get_cache", new_callable=AsyncMock, return_value=None), \
+         patch("app.api.clients.set_cache", new_callable=AsyncMock), \
+         patch("app.api.clients.delete_cache", new_callable=AsyncMock):
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test"
+        ) as ac:
+            yield ac
     app.dependency_overrides.clear()
 
 
@@ -140,7 +145,6 @@ async def test_create_and_get_client(client):
 
 @pytest.mark.asyncio
 async def test_analyst_cannot_delete_client(analyst_client):
-    # Analyst не может удалять клиентов — только admin.
     response = await analyst_client.delete(
         "/api/v1/clients/00000000-0000-0000-0000-000000000000"
     )
