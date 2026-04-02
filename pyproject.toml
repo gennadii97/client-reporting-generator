@@ -26,7 +26,8 @@ dependencies = [
     "faker>=24.0.0",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
-    "sentry-sdk[fastapi]"
+    "sentry-sdk[fastapi]",
+    "sentry-sdk"
 ]
 
 [project.optional-dependencies]
