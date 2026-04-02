@@ -1,7 +1,8 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.api.deps import get_current_user, get_db
 from app.core.database import Base
