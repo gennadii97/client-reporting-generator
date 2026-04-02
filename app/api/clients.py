@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, require_admin
+from app.core.cache import delete_cache, get_cache, set_cache
 from app.core.limiter import limiter
 from app.core.logger import logger
 from app.models import Client, User
@@ -33,7 +34,6 @@ async def create_client(
     payload: ClientCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
-    # Только admin может создавать клиентов.
 ):
     logger.info(f"Creating client: name={payload.name} by user={current_user.username}")
     client = Client(
@@ -43,7 +43,11 @@ async def create_client(
     )
     db.add(client)
     await db.flush()
-    logger.info(f"Client created: id={client.id}")
+
+    # Инвалидируем кеш первой страницы — данные изменились.
+    await delete_cache("clients:list:page=1:limit=20")
+    logger.info(f"Cache invalidated after creating client: {client.id}")
+
     return ClientResponse.model_validate(client)
 
 
@@ -55,11 +59,20 @@ async def list_clients(
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    # Любой авторизованный пользователь может читать.
 ):
     if limit > 100:
         raise HTTPException(status_code=400, detail="Limit cannot exceed 100")
 
+    cache_key = f"clients:list:page={page}:limit={limit}"
+    # Уникальный ключ для каждой комбинации page и limit.
+
+    cached = await get_cache(cache_key)
+    if cached:
+        logger.info(f"Cache hit: {cache_key}")
+        return cached
+    # Если данные есть в Redis — возвращаем сразу без запроса в БД.
+
+    logger.info(f"Cache miss: {cache_key}")
     offset = (page - 1) * limit
     result = await db.execute(
         select(Client)
@@ -68,7 +81,12 @@ async def list_clients(
         .limit(limit)
     )
     clients = result.scalars().all()
-    return [ClientResponse.model_validate(c) for c in clients]
+    data = [ClientResponse.model_validate(c).model_dump() for c in clients]
+
+    await set_cache(cache_key, data, ttl=60)
+    # Сохраняем в Redis на 60 секунд.
+
+    return data
 
 
 @router.get("/{client_id}", response_model=ClientResponse)
@@ -91,7 +109,6 @@ async def delete_client(
     client_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
-    # Только admin может удалять.
 ):
     result = await db.execute(
         select(Client).where(Client.id == client_id)
@@ -101,5 +118,8 @@ async def delete_client(
         logger.warning(f"Client not found: id={client_id}")
         raise HTTPException(status_code=404, detail="Client not found")
 
-    logger.info(f"Deleting client: id={client_id} by user={current_user.username}")
     await db.delete(client)
+
+    # Инвалидируем кеш после удаления.
+    await delete_cache("clients:list:page=1:limit=20")
+    logger.info(f"Deleting client: id={client_id} by user={current_user.username}")
