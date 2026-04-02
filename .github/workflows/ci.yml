@@ -38,7 +38,8 @@ jobs:
             python-multipart greenlet psycopg2-binary \
             pytest pytest-asyncio httpx ruff mypy aiosqlite \
             slowapi loguru flower faker \
-            bcrypt "python-jose[cryptography]"
+            bcrypt "python-jose[cryptography]" \
+            "sentry-sdk[fastapi]" "redis[asyncio]"
 
       - name: Run linter
         run: ruff check .
